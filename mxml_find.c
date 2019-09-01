@@ -4,7 +4,8 @@
 
 #include "mxml_int.h"
 
-/** Tests if key @a child is equal to, or a descendent of @a parent. */
+/** Tests if key @a child is equal to, or a descendent of @a parent.
+ *  That is, is parent equal to, or a prefix of child? */
 static int
 is_key_self_or_child(const char *child, int childlen,
 		     const char *parent, int parentlen)
@@ -13,7 +14,7 @@ is_key_self_or_child(const char *child, int childlen,
 		return 0;
 	if (childlen == parentlen)
 		return strncmp(child, parent, childlen) == 0;
-	if (parent[childlen] != '.')
+	if (child[parentlen] != '.')
 		return 0;
 	return strncmp(child, parent, parentlen) == 0;
 }

@@ -142,7 +142,6 @@ int main() {
 		     "</cat1>"
 		     "<total>1</total>"
 		  "</cats>"
-		  "<unicorns></unicorns>"
 		"</top>");
 	assert_streq(s=mxml_get(m, "top.dog[1].name"), "Fido"); free(s);
 	assert_streq(s=mxml_get(m, "top.dog[2].colour"), "Spotty"); free(s);
@@ -153,8 +152,22 @@ int main() {
 	assert_null_errno(mxml_get(m, "top.unicorn[1].magic"), ENOENT);
 	/* [#] expands to the total count */
 	assert_streq(s=mxml_get(m, "top.dog[#]"), "2"); free(s);
+	/* [#] expands to 0 if the list doesn't exist */
+	assert_streq(s=mxml_get(m, "top.unicorn[#]"), "0"); free(s);
 	/* [$] expands to the last item */
 	assert_streq(s=mxml_get(m, "top.dog[$].name"), "Spot"); free(s);
 	assert_null_errno(mxml_get(m, "top.unicorn[$].magic"), ENOENT);
+	/* [#] must be last */
+	assert_null_errno(mxml_get(m, "top.unicorn[#].magic"), EINVAL);
+	/* can't write to [#] */
+	assert_errno(mxml_set(m, "top.dog[#]", "9"), EPERM);
+
+	/* Can insert a new unicorn */
+	assert0(mxml_append(m, "top.unicorn[+].name", "Charlie"));
+	assert_streq(s=mxml_get(m, "top.unicorn[$].name"), "Charlie"); free(s);
+	assert_streq(s=mxml_get(m, "top.unicorn[#]"), "1"); free(s);
+	/* Can delete an entire tree */
+	assert0(mxml_delete(m, "top.cat[*]"));
+	assert_streq(s=mxml_get(m, "top.cat[#]"), "0"); free(s);
 
 }

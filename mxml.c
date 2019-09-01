@@ -1,10 +1,4 @@
-/*
-#include <stdlib.h>
 #include <stdio.h>
-#include <ctype.h>
-#include <limits.h>
-*/
-
 #include <string.h>
 #include <errno.h>
 
@@ -69,6 +63,26 @@ unencode_xml(const char *content, size_t contentsz)
 	return ret;
 }
 
+
+/* Save a little bit of memory with a global empty value string */
+static char value_empty[] = "";
+
+static char *
+value_strdup(const char *s)
+{
+	if (!s || !*s)
+		return value_empty;
+	return strdup(s);
+}
+
+static void
+value_free(char *value)
+{
+	if (value != value_empty)
+		free(value);
+}
+
+
 struct mxml *
 mxml_new(const char *start, unsigned int size)
 {
@@ -95,7 +109,7 @@ mxml_free(struct mxml *m)
 	while ((e = m->edits)) {
 		m->edits = e->next;
 		free(e->key);
-		free(e->value);
+		value_free(e->value);
 		free(e);
 	}
 	free(m);
@@ -113,8 +127,12 @@ mxml_get(struct mxml *m, const char *key)
 	if (ekeylen < 0)
 		return NULL;
 	content = find_key(m, ekey, ekeylen, &contentsz);
-	if (!content)
+	if (!content) {
+		/* Provide a missing list total */
+		if (strstr(key, "[#]"))
+			return strdup("0");
 		return NULL;
+	}
 	return unencode_xml(content, contentsz);
 }
 
@@ -124,44 +142,83 @@ mxml_get(struct mxml *m, const char *key)
  * @retval NULL [ENOMEM] no memory
  */
 static struct edit *
-edit_new(struct mxml *m, enum edit_op op)
+edit_new(struct mxml *m, enum edit_op op, const char *ekey, int ekeylen,
+	const char *value)
 {
 	struct edit *e = calloc(1, sizeof *e);
-	if (e) {
-		e->next = m->edits;
-		m->edits = e;
-		e->op = op;
+	if (!e)
+		return NULL;
+	e->key = strndup(ekey, ekeylen);
+	if (!e->key) {
+		free(e);
+		return NULL;
 	}
+	e->value = value_strdup(value);
+	if (!e->value) {
+		free(e->key);
+		free(e);
+		return NULL;
+	}
+	e->op = op;
+	e->next = m->edits;
+	m->edits = e;
 	return e;
 }
 
 int
 mxml_delete(struct mxml *m, const char *key)
 {
-	struct edit *edit = edit_new(m, EDIT_DELETE);
+	char ekey[KEY_MAX];
+	int ekeylen;
+	const char *content;
+	size_t contentsz;
+	struct edit *edit;
+
+	ekeylen = expand_key(m, ekey, sizeof ekey, key);
+	if (ekeylen < 0)
+		return 0;
+
+	/* Can't delete [#] */
+	if (strstr(key, "[#]")) {
+		errno = EPERM;
+		return -1;
+	}
+
+	content = find_key(m, ekey, ekeylen, &contentsz);
+	if (!content)
+		return errno == ENOENT ? 0 : -1;
+
+	edit = edit_new(m, EDIT_DELETE, ekey, ekeylen, NULL);
 	if (!edit)
 		return -1;
-	edit->op = EDIT_DELETE;
-	edit->key = strdup(key);
-	edit->value = NULL;
 	return 0;
 }
 
 int
 mxml_set(struct mxml *m, const char *key, const char *value)
 {
+	char ekey[KEY_MAX];
+	int ekeylen;
+	const char *content;
+	size_t contentsz;
 	struct edit *edit;
-	const char *text;
-	size_t sz;
 
-	text = find_key(m, key, strlen(key), &sz);
-	if (!text)
+	ekeylen = expand_key(m, ekey, sizeof ekey, key);
+	if (ekeylen < 0)
+		return 0;
+
+	/* Can't set [#] */
+	if (strstr(key, "[#]")) {
+		errno = EPERM;
 		return -1;
-	edit = edit_new(m, EDIT_SET);
+	}
+
+	content = find_key(m, ekey, ekeylen, &contentsz);
+	if (!content)
+		return -1;	/* Must exist to be set */
+	edit = edit_new(m, EDIT_SET, ekey, ekeylen, value);
 	if (!edit)
 		return -1;
-	edit->key = strdup(key);
-	edit->value = strdup(value);
 	return 0;
 }
 
@@ -183,18 +240,78 @@ mxml_exists(struct mxml *m, const char *key)
 int
 mxml_append(struct mxml *m, const char *key, const char *value)
 {
+	char ekey[KEY_MAX];
+	int ekeylen;
+	int sublen;
+	const char *dot;
+	const char *brackplus;
+	const char *content;
+	size_t contentsz;
 	struct edit *edit;
 
-	if (mxml_exists(m, key)) {
+	ekeylen = expand_key(m, ekey, sizeof ekey, key);
+	if (ekeylen < 0)
+		return 0;
+
+	/* Can't append if it already exists */
+	content = find_key(m, ekey, ekeylen, &contentsz);
+	if (content) {
 		errno = EEXIST;
 		return -1;
 	}
-	/* We don't have to worry about parents right now,
-	 * they will be created later */
-	edit = edit_new(m, EDIT_APPEND);
+
+	/* Append all missing parents first. */
+	sublen = 0;
+	while ((dot = memchr(ekey + sublen, '.', ekeylen - sublen))) {
+		sublen = dot - ekey;
+		content = find_key(m, ekey, sublen, &contentsz);
+		if (!content) {
+			edit = edit_new(m, EDIT_APPEND, ekey, sublen, NULL);
+			if (!edit)
+				return -1;
+		}
+		sublen++;
+	}
+
+	/* Update tags.total when the key contains "tag[+]" */
+	if ((brackplus = strstr(key, "[+]"))) {
+		char *tkey;		/* "tag[#]" */
+		char etkey[KEY_MAX];	/* "tags.total" */
+		int etkeylen;
+		int bracklen = brackplus - key + 3;
+		const char *tcontent;
+		size_t tcontentsz;
+		unsigned int total;
+		char newtotal[sizeof (unsigned int) * 25 / 10 + 2];
+		/* Note above: 25/10 approximates ln(2**8)/ln(10) */
+
+		/* Make a copy of "tag[+]" */
+		tkey = strndup(key, bracklen);
+		if (!tkey)
+			return -1;
+		/* Replace the trailing [+] with [#] */
+		tkey[bracklen - 2] = '#';
+
+		/* Expand tag[#] into tags.total */
+		etkeylen = expand_key(m, etkey, sizeof etkey, tkey);
+		if (etkeylen < 0)
+			return 0;
+
+		/* Find the existing total, if any */
+		tcontent = find_key(m, etkey, etkeylen, &tcontentsz);
+		if (!tcontent || parse_uint(tcontent, tcontentsz, &total) < 0)
+			total = 0;
+
+		/* Add one, and make an edit element to update it */
+		snprintf(newtotal, sizeof newtotal, "%u", total + 1);
+		edit = edit_new(m, tcontent ? EDIT_SET : EDIT_APPEND,
+		    etkey, etkeylen, newtotal);
+
+		free(tkey);
+	}
+
+	edit = edit_new(m, EDIT_APPEND, ekey, ekeylen, value);
 	if (!edit)
 		return -1;
-	edit->key = strdup(key);
-	edit->value = strdup(value);
 	return 0;
 }

@@ -54,6 +54,8 @@ void cache_set(struct mxml *m, const char *ekey, int ekeylen,
 
 /* mxml_ekey.c */
 int expand_key(struct mxml *m, char *outbuf, size_t outbufsz, const char *key);
+int parse_uint(const char *s, int n, unsigned int *retval);
+
 
 /* mxml_find.c */
 const char *find_key(struct mxml *m, const char *ekey,

@@ -47,14 +47,19 @@ char *mxml_get(struct mxml *m, const char *key);
 /**
  * Tests if the tag described by the key exists.
  * @retval 0  the key does not exist
+ * @retval 0  the key is not well-formed
  * @retval 1  the key does exist
  */
 int mxml_exists(struct mxml *m, const char *key);
 
 /**
  * Deletes the element (and its children) from the document.
- * @retval 0 on success
- * @retval -1 [ENOENT] the element was deleted or does not exist.
+ * @param key the key to delete.
+ *            If the key ends with "[*]" then a whole list is deleted.
+ * @retval 0 successfully deleted
+ * @retval 0 element did not exist
+ * @retval -1 [ENOMEM] out of memory
+ * @retval -1 [EINVAL] the key is malformed
  */
 int mxml_delete(struct mxml *m, const char *key);
 
@@ -62,25 +67,33 @@ int mxml_delete(struct mxml *m, const char *key);
  * Sets the text value of an existing element.
  * @retval 0  success
  * @retval -1 [ENOENT] the element has been deleted or never existed.
+ * @retval -1 [EINVAL] the key is malformed
+ * @retval -1 [ENOMEM] out of memory
  */
 int mxml_set(struct mxml *m, const char *key, const char *value);
 
 /**
  * Appends a new tag to its parent, creating parents as needed.
  * @param key the tag to append.
- *            If the key ends with "[+]" then the next integer
- *            is used, and the total is updated. The caller
- *            can then use "[$]" to access the last key.
+ *            If the key contains a single "[+]" then the corresponding
+ *            tag.total is incremented and its number is used. Subsequent
+ *            calls should then use "[$]" to access the newly-added parent.
  * @param value (optional) the value of the tag; or NULL
  * @retval 0  success
  * @retval -1 [EXIST] the key already exists, and was not changed.
+ * @retval -1 [EINVAL] the key is malformed
+ * @retval -1 [ENOMEM] out of memory
  */
 int mxml_append(struct mxml *m, const char *key, const char *value);
 
 /**
- * Writes the XML document with edits to a file descriptor.
- * @param fd Output file to write.
- * @returns the non-negative number of bytes written
- * @retval -1 on errors, sets #errno
+ * Writes out an XML document with edits.
+ * @param writefn Output callback function. If the callback function
+ *                returns -1, then this function aborts and returns -1 too.
+ * @param context Context value passed to @a writefn.
+ * @returns the sum of the return values from @a writefn.
+ * @retval -1 if @a writefn returned -1
  */
-int mxml_write(int fd, const struct mxml *m);
+int mxml_write(const struct mxml *m,
+	int (*writefn)(void *context, const char *text, unsigned int len),
+	void *context);

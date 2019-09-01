@@ -16,7 +16,7 @@
  * @retval -1 [ERANGE] the integer in @a s was too big
  * @retval -1 [EINVAL] the input was not an unsigned integer.
  */
-static int
+int
 parse_uint(const char *s, int n, unsigned int *retval)
 {
 	unsigned int val = 0;
@@ -110,18 +110,21 @@ expand_key(struct mxml *m, char *outbuf, size_t outbufsz, const char *key)
 		/* Now handling ".tag[...]" */
 		if (tagstart == key)
 			goto invalid; /* missing tag before [ */
-		if (!strchr("123456789#+$", key[1]))
-			goto invalid; /* invalid char after [ */
 		OUTB('s');
-		OUTB('.');	/* output is now ".tags." */
 		key++; /* Skip input '[' */
 		if (*key >= '1' && *key <= '9') {
 			/* handling .tag[123] -> .tags.tag123 */
+			OUTB('.');
 			for (w = tagstart; *w != '['; w++)
 				OUTB(*w);
 			while (*key >= '0' && *key <= '9')
 				OUTB(*key++);
-		} else {
+		} else if (*key == '*') {
+			/* handling .tag[*] -> .tags */
+			if (key[1] != ']' || key[2] != '\0')
+				goto invalid; /* [*] must be last */
+			key++;
+		} else if (*key == '#' || *key == '$' || *key == '+') {
 			/* handling .tag[#] -> .tags.total
 			 *          .tag[$] -> .tags.tag<N>
 			 *          .tag[+] -> .tags.tag<N+1>
@@ -132,10 +135,13 @@ expand_key(struct mxml *m, char *outbuf, size_t outbufsz, const char *key)
 			 * that will be our final output, or we will
 			 * be using outbuf as a temporary to extract
 			 * the actual current tags.total value. */
+			OUTB('.');
 			b_save = b;
 			OUTSTR("total");
 			if (*key == '#') {
 				/* tag[#] => tags.total */
+				if (key[1] != ']' || key[2] != '\0')
+					goto invalid; /* [#] must be last */
 			} else if (*key == '$' || *key == '+') {
 				unsigned int total;
 				size_t totalsz = 0;
@@ -155,7 +161,8 @@ expand_key(struct mxml *m, char *outbuf, size_t outbufsz, const char *key)
 				goto invalid; /* expected tag[<int>|$|+|#] */
 			}
 			key++;
-		}
+		} else
+			goto invalid; /* invalid char after [ */
 		if (*key++ != ']')
 			goto invalid;	/* expected ] */
 		if (*key && *key != '.')
