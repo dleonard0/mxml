@@ -35,13 +35,10 @@ struct cursor {
 
 /* mxml_cursor.c */
 int cursor_is_at_eof(const struct cursor *c);
-int cursor_is_atn(const struct cursor *c, const char *s, size_t slen);
 int cursor_is_at(const struct cursor *c, const char *s);
 int cursor_eatn(struct cursor *c, const char *s, unsigned int slen);
 int cursor_eatch(struct cursor *c, char ch);
-int cursor_eat(struct cursor *c, const char *s);
 int cursor_eat_white(struct cursor *c);
-void cursor_skip_to(struct cursor *c, const char *s);
 void cursor_skip_to_ch(struct cursor *c, char ch);
 void cursor_skip_content(struct cursor *c);
 void cursor_skip_to_close(struct cursor *c);
@@ -59,8 +56,6 @@ void cache_set(struct mxml *m, const char *ekey, int ekeylen,
 int expand_key(struct mxml *m, char *outbuf, size_t outbufsz, const char *key);
 
 /* mxml_find.c */
-const char *find_key_noedit(struct mxml *m, const char *ekey,
-	int ekeylen, size_t *sz_return);
 const char *find_key(struct mxml *m, const char *ekey,
 	int ekeylen, size_t *sz_return);
 

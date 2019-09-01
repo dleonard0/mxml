@@ -12,7 +12,7 @@ cursor_is_at_eof(const struct cursor *c)
 }
 
 /** Cursor is positioned at the string? */
-int
+static int
 cursor_is_atn(const struct cursor *c, const char *s, size_t slen)
 {
 	return c->pos + slen <= c->end &&
@@ -54,7 +54,7 @@ cursor_eatch(struct cursor *c, char ch)
 /** Advance cursor past a string only if it is there.
  *  @retval 0 could not advance; cursor left unchanged.
  *  @retval 1 advanced cursor past @a s. */
-int
+static int
 cursor_eat(struct cursor *c, const char *s)
 {
 	int slen = strlen(s);
@@ -80,7 +80,7 @@ cursor_eat_white(struct cursor *c)
 }
 
 /** Advance cursor until it is positioned at @a s, or at EOF */
-void
+static void
 cursor_skip_to(struct cursor *c, const char *s)
 {
 	const char *found;

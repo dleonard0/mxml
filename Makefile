@@ -17,3 +17,10 @@ t-mxml: t-mxml.o $(OBJS)
 clean:
 	-rm -f *.o t-mxml TAGS tags
 
+show-unused-visible:
+	nm -go $(OBJS) | sed 's,:................,,' | \
+	awk '$$2 == "T" { def[$$3] = $$1 } \
+	     $$2 == "U" { use[$$3] = 1 } \
+	     END { for (sym in def) \
+	            if (!use[sym]) \
+		     print def[sym] ": unused symbol, " sym; }'

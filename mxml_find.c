@@ -24,7 +24,7 @@ is_key_self_or_child(const char *child, int childlen,
  *  @returns pointer to beginning of the content inside "<baz>...</baz>"
  *  @retval NULL [ENOENT] if the element for the key was not found.
  **/
-const char *
+static const char *
 find_key_noedit(struct mxml *m, const char *reqkey, int reqkeylen,
 		size_t *sz_return)
 {
