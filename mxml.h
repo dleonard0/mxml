@@ -55,6 +55,7 @@ int mxml_exists(struct mxml *m, const char *key);
 /**
  * Deletes the element (and its children) from the document.
  * @param key the key to delete.
+ *            If the key ends with "[$]" then the total is updated.
  *            If the key ends with "[*]" then a whole list is deleted.
  * @retval 0 successfully deleted
  * @retval 0 element did not exist

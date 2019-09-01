@@ -170,4 +170,13 @@ int main() {
 	assert0(mxml_delete(m, "top.cat[*]"));
 	assert_streq(s=mxml_get(m, "top.cat[#]"), "0"); free(s);
 
+	/* Deleting the last element [$] updates .total [#] */
+	assert_streq(s=mxml_get(m, "top.dog[#]"), "2"); free(s);
+	assert0(mxml_delete(m, "top.dog[$]"));
+	assert_streq(s=mxml_get(m, "top.dog[#]"), "1"); free(s);
+	assert0(mxml_delete(m, "top.dog[$]"));
+	assert_streq(s=mxml_get(m, "top.dog[#]"), "0"); free(s);
+	assert0(mxml_delete(m, "top.dog[$]"));
+	assert_streq(s=mxml_get(m, "top.dog[#]"), "0"); free(s);
+
 }

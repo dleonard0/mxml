@@ -1,9 +1,26 @@
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
+#include <ctype.h>
 
 #include "mxml.h"
 #include "mxml_int.h"
+
+/* The space needed to hold UINT_MAX in base 10.
+ * Used for buffer size calculations.
+ * 25/10 approximates 8*ln(2)/ln(10) */
+#define UINT_MAX_LEN (sizeof (unsigned int) * 25 / 10 + 1)
+
+/** Tests if the string ends with an ending. */
+static int
+ends_with(const char *s, const char *end)
+{
+	int slen = strlen(s);
+	int endlen = strlen(end);
+
+	return slen >= endlen &&
+		strcmp(s + slen - endlen, end) == 0;
+}
 
 /**
  * Copies/calculates unencoded form of XML.
@@ -129,7 +146,7 @@ mxml_get(struct mxml *m, const char *key)
 	content = find_key(m, ekey, ekeylen, &contentsz);
 	if (!content) {
 		/* Provide a missing list total */
-		if (strstr(key, "[#]"))
+		if (ends_with(key, "[#]"))
 			return strdup("0");
 		return NULL;
 	}
@@ -179,7 +196,7 @@ mxml_delete(struct mxml *m, const char *key)
 		return 0;
 
 	/* Can't delete [#] */
-	if (strstr(key, "[#]")) {
+	if (ends_with(key, "[#]")) {
 		errno = EPERM;
 		return -1;
 	}
@@ -191,6 +208,77 @@ mxml_delete(struct mxml *m, const char *key)
 	edit = edit_new(m, EDIT_DELETE, ekey, ekeylen, NULL);
 	if (!edit)
 		return -1;
+
+	/* Deleting [$] updates .total */
+	if (ends_with(key, "[$]")) {
+		/*
+		 * The ekey will be "tags.tagNNN".
+		 * We'll capture the NNN, decrement it,
+		 * then convert ekey to "tags.total".
+		 */
+		char totalbuf[UINT_MAX_LEN + 1];
+		char *total;
+		unsigned int i = ekeylen;
+		unsigned j = sizeof totalbuf;
+		int carry = 1;
+
+		/* In right-to-left loops, indicies
+		 * are pre-decremented before read/write.
+		 * Subtract the carry from the number, so that
+		 * "100" becomes "099".
+		 */
+		totalbuf[--j] = '\0';
+		while (i) {
+			char ch = ekey[--i];
+			if (!isdigit(ch))
+				break;
+			if (carry) {
+				if (ch == '0') ch = '9';
+				else ch--, carry = 0;
+			}
+			totalbuf[--j] = ch;
+		}
+		if (carry) /* something went bad; assume 0 */
+			j = sizeof totalbuf - 1;
+		/* "09" become "9"; and "0" becomes "" */
+		if (totalbuf[j] == '0')
+			j++;
+		/* Convert "" to NULL (delete) */
+		total = totalbuf[j] ? &totalbuf[j] : NULL;
+
+		/* Back up to after the '.' in "tags.tagNNN" */
+		while (i && ekey[i - 1] != '.')
+			i--;
+		/* Replace the ending to make "tags.total" */
+		if (i + 5 > sizeof ekey) {
+			errno = ENOMEM;
+			return -1;
+		}
+		memcpy(ekey + i, "total", 5);
+		ekeylen = i + 5;
+
+		content = find_key(m, ekey, ekeylen, &contentsz);
+		if (content && !total) {
+			/* Instead of setting .total to 0,
+			 * we delete it. */
+			edit = edit_new(m, EDIT_DELETE,
+					ekey, ekeylen, NULL);
+			if (!edit)
+				return -1;
+		} else if (content && total) {
+			edit = edit_new(m, EDIT_SET,
+					ekey, ekeylen, total);
+			if (!edit)
+				return -1;
+		} else if (!content && total) {
+			/* XXX this should never happen */
+			edit = edit_new(m, EDIT_APPEND,
+					ekey, ekeylen, total);
+			if (!edit)
+				return -1;
+		}
+	}
+
 	return 0;
 }
 
@@ -208,7 +296,7 @@ mxml_set(struct mxml *m, const char *key, const char *value)
 		return 0;
 
 	/* Can't set [#] */
-	if (strstr(key, "[#]")) {
+	if (ends_with(key, "[#]")) {
 		errno = EPERM;
 		return -1;
 	}
@@ -282,8 +370,7 @@ mxml_append(struct mxml *m, const char *key, const char *value)
 		const char *tcontent;
 		size_t tcontentsz;
 		unsigned int total;
-		char newtotal[sizeof (unsigned int) * 25 / 10 + 2];
-		/* Note above: 25/10 approximates ln(2**8)/ln(10) */
+		char newtotal[UINT_MAX_LEN + 1];
 
 		/* Make a copy of "tag[+]" */
 		tkey = strndup(key, bracklen);
