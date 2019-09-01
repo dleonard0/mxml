@@ -147,19 +147,21 @@ int main() {
 	assert_streq(s=mxml_get(m, "top.dog[2].colour"), "Spotty"); free(s);
 	assert_null_errno(mxml_get(m, "top.dog[3].name"), ENOENT);
 	assert_null_errno(mxml_get(m, "top.dog[0].name"), EINVAL);
-	/* Some things shoould not exist */
+	/* Accessing non-existent list entries returnes ENOENT */
 	assert_null_errno(mxml_get(m, "top.rhinoceros[1].horn"), ENOENT);
 	assert_null_errno(mxml_get(m, "top.unicorn[1].magic"), ENOENT);
-	/* [#] expands to the total count */
+	/* [#] expands to the total count of a valid list */
 	assert_streq(s=mxml_get(m, "top.dog[#]"), "2"); free(s);
 	/* [#] expands to 0 if the list doesn't exist */
 	assert_streq(s=mxml_get(m, "top.unicorn[#]"), "0"); free(s);
 	/* [$] expands to the last item */
-	assert_streq(s=mxml_get(m, "top.dog[$].name"), "Spot"); free(s);
 	assert_null_errno(mxml_get(m, "top.unicorn[$].magic"), ENOENT);
-	/* [#] must be last */
+	assert_streq(s=mxml_get(m, "top.cat[$].lives"), "3"); free(s);
+	assert_streq(s=mxml_expand_key(m, "top.dog[$]"), "top.dog[2]"); free(s);
+	assert_streq(s=mxml_expand_key(m, "top.unicorn[$].magic"), "top.unicorn[0].magic"); free(s);
+	/* [#] is invalid when used in the middle of a key pattern */
 	assert_null_errno(mxml_get(m, "top.unicorn[#].magic"), EINVAL);
-	/* can't write to [#] */
+	/* can't write to the [#] */
 	assert_errno(mxml_set(m, "top.dog[#]", "9"), EPERM);
 
 	/* Can insert a new unicorn */
@@ -179,4 +181,5 @@ int main() {
 	assert0(mxml_delete(m, "top.dog[$]"));
 	assert_streq(s=mxml_get(m, "top.dog[#]"), "0"); free(s);
 
+	mxml_free(m);
 }

@@ -77,8 +77,8 @@ int mxml_set(struct mxml *m, const char *key, const char *value);
  * Appends a new tag to its parent, creating parents as needed.
  * @param key the tag to append.
  *            If the key contains a single "[+]" then the corresponding
- *            tag.total is incremented and its number is used. Subsequent
- *            calls should then use "[$]" to access the newly-added parent.
+ *            tag.total is incremented and its new number is used.
+ *            Subsequent calls should then refer to it as "[$]".
  * @param value (optional) the value of the tag; or NULL
  * @retval 0  success
  * @retval -1 [EXIST] the key already exists, and was not changed.
@@ -86,6 +86,17 @@ int mxml_set(struct mxml *m, const char *key, const char *value);
  * @retval -1 [ENOMEM] out of memory
  */
 int mxml_append(struct mxml *m, const char *key, const char *value);
+
+/**
+ * Expands a key containing [$] into its [integer] form.
+ * @param key  the tag to expand
+ * @return a malloc-provided string, containing the key but
+ *         with [$] replaced by [<integer>],
+ * @retval NULL [ENOMEM] cannot allocate memory
+ * @retval NULL [EINVAL] the key is malformed
+ * @retval NULL [ENOENT] the key is malformed
+ */
+char *mxml_expand_key(struct mxml *m, const char *key);
 
 /**
  * Writes out an XML document with edits.

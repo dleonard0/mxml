@@ -132,21 +132,28 @@ mxml_free(struct mxml *m)
 	free(m);
 }
 
-char *
-mxml_get(struct mxml *m, const char *key)
+static const char *
+find_expand_key(struct mxml *m, const char *key, size_t *size_return)
 {
 	char ekey[KEY_MAX];
 	int ekeylen;
-	const char *content;
-	size_t contentsz;
 
 	ekeylen = expand_key(m, ekey, sizeof ekey, key);
 	if (ekeylen < 0)
 		return NULL;
-	content = find_key(m, ekey, ekeylen, &contentsz);
+	return find_key(m, ekey, ekeylen, size_return);
+}
+
+char *
+mxml_get(struct mxml *m, const char *key)
+{
+	const char *content;
+	size_t contentsz;
+
+	content = find_expand_key(m, key, &contentsz);
 	if (!content) {
 		/* Provide a missing list total */
-		if (ends_with(key, "[#]"))
+		if (errno == ENOENT && ends_with(key, "[#]"))
 			return strdup("0");
 		return NULL;
 	}
@@ -313,16 +320,9 @@ mxml_set(struct mxml *m, const char *key, const char *value)
 int
 mxml_exists(struct mxml *m, const char *key)
 {
-	char ekey[KEY_MAX];
-	int ekeylen;
-	const char *content;
 	size_t contentsz;
 
-	ekeylen = expand_key(m, ekey, sizeof ekey, key);
-	if (ekeylen < 0)
-		return 0;
-	content = find_key(m, ekey, ekeylen, &contentsz);
-	return content != NULL;
+	return find_expand_key(m, key, &contentsz) != NULL;
 }
 
 int
@@ -401,4 +401,49 @@ mxml_append(struct mxml *m, const char *key, const char *value)
 	if (!edit)
 		return -1;
 	return 0;
+}
+
+char *
+mxml_expand_key(struct mxml *m, const char *key)
+{
+	char outbuf[KEY_MAX];
+	unsigned int outlen = 0;
+	const char *brack;
+	const char *first;
+	int n;
+
+	first = key;
+	while ((brack = strstr(first, "[$]"))) {
+		const char *content;
+		size_t contentsz;
+		unsigned int total;
+		const char *endbrack = brack + 3;
+		int tkeylen = endbrack - key;
+		char *tkey = strndup(key, tkeylen);
+
+		if (!tkey)
+			return NULL;
+		tkey[tkeylen - 2] = '#';
+		content = find_expand_key(m, tkey, &contentsz);
+		if (!content || parse_uint(content, contentsz, &total) < 0)
+			total = 0;
+		free(tkey);
+
+		n = snprintf(&outbuf[outlen], sizeof outbuf - outlen,
+			"%.*s[%u]", (int)(brack - first), first, total);
+		outlen += n;
+		if (outlen >= sizeof outbuf) {
+			errno = ENOMEM;
+			return NULL;
+		}
+		first = endbrack;
+	}
+	n = snprintf(&outbuf[outlen], sizeof outbuf - outlen, "%s", first);
+	outlen += n;
+	if (outlen >= sizeof outbuf) {
+		errno = ENOMEM;
+		return NULL;
+	}
+
+	return strndup(outbuf, outlen);
 }
