@@ -1,5 +1,7 @@
 #include <stdlib.h>	/* size_t */
 
+#define HAVE_CACHE	1	/* Enable cache by default */
+
 #define KEY_MAX		256	/* maximum length of expanded key */
 
 /* In-memory XML parser and editor */
@@ -8,10 +10,11 @@ struct mxml {
 	size_t size;		/* Length of XML document */
 	struct edit *edits;	/* Reverse list of edits */
 #if HAVE_CACHE
+# define CACHE_MAX 32
 	/* A small cache of previously-found key prefixes
 	 * within the XML body start[0..size-1] */
 	struct cache {
-		char key[CACHE_KEY_MAX];
+		char key[KEY_MAX];
 		int keylen;
 		const char *data; /* First byte after <tag> */
 		size_t size;
@@ -59,7 +62,7 @@ void cache_init(struct mxml *m);
 const char *cache_get(struct mxml *m, const char *ekey, int ekeylen,
 		      size_t *sz_return);
 void cache_set(struct mxml *m, const char *ekey, int ekeylen,
-	       const char *data, size_t size)
+	       const char *data, size_t size);
 #endif
 
 /* mxml_ekey.c */

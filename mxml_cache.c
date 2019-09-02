@@ -1,3 +1,5 @@
+#include <string.h>
+
 #include "mxml_int.h"
 
 #if HAVE_CACHE
@@ -16,7 +18,7 @@ cache_get(struct mxml *m, const char *ekey, int ekeylen, size_t *sz_return)
 {
 	unsigned int i;
 
-	if (ekeylen > CACHE_KEY_MAX)
+	if (ekeylen > KEY_MAX)
 		return NULL;
 	for (i = 0; i < CACHE_MAX; i++) {
 		const struct cache *cache = &m->cache[i];
@@ -36,7 +38,7 @@ cache_set(struct mxml *m, const char *ekey, int ekeylen,
 {
 	struct cache *cache;
 
-	if (ekeylen <= CACHE_KEY_MAX) {
+	if (ekeylen <= KEY_MAX) {
 		cache = &m->cache[m->cache_next];
 		cache->keylen = ekeylen;
 		memcpy(cache->key, ekey, ekeylen);
