@@ -141,6 +141,8 @@ int main() {
 	struct buf buf;
 	struct mxml *m;
 	char *s;
+	char **keys;
+	unsigned int nkeys;
 
 	buf_init(&buf);
 
@@ -306,5 +308,21 @@ int main() {
 	    "</top>", buf.data);
 
 	buf_release(&buf);
+
+	/* We can extract the expanded keys */
+	assert((keys = mxml_keys(m, &nkeys)) != NULL);
+	assert(nkeys == 10);
+	assert_streq(keys[0], "top");
+	assert_streq(keys[1], "top.bar");
+	assert_streq(keys[2], "top.cats");
+	assert_streq(keys[3], "top.cats.cat1");
+	assert_streq(keys[4], "top.cats.cat1.name");
+	assert_streq(keys[5], "top.cats.cat1.colour");
+	assert_streq(keys[6], "top.cats.total");
+	assert_streq(keys[7], "top.cats.cat2");
+	assert_streq(keys[8], "top.cats.cat2.name");
+	assert_streq(keys[9], "top.cats.cat2.colour");
+	mxml_free_keys(keys, nkeys);
+
 	mxml_free(m);
 }

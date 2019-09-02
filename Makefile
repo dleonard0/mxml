@@ -11,6 +11,7 @@ OBJS += mxml_ekey.o
 OBJS += mxml_find.o
 OBJS += mxml_write.o
 OBJS += mxml_flatten.o
+OBJS += mxml_keys.o
 
 check: t-mxml
 	./t-mxml

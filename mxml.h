@@ -109,3 +109,22 @@ char *mxml_expand_key(struct mxml *m, const char *key);
 int mxml_write(const struct mxml *m,
 	int (*writefn)(void *context, const char *text, unsigned int len),
 	void *context);
+
+/**
+ * Extract a list of all the keys in the document.
+ * The key list is derived from the XML document and edits, and
+ * is returned in the same order as #mxml_write() would emit them.
+ * Empty and interior (container) keys are also returned in the list.
+ * @param nkeys_return storage for returning the number of keys returned.
+ *                     This storage is always set.
+ * @returns An array of expanded key strings.
+ *          The array and each string should be released with #free().
+ * @retval NULL [ENOMEM] could not allocate memory
+ */
+char **mxml_keys(const struct mxml *m, unsigned int *nkeys_return);
+
+/**
+ * Frees keys returned by #mxml_keys().
+ * @param keys (optional) array of keys. NULL is acceptable.
+ */
+void mxml_free_keys(char **keys, unsigned int nkeys);
