@@ -46,35 +46,38 @@ struct token {
 				 * and needs XML-encoding */
 };
 
+/* Internal API; hidden when in a library */
+#define INTAPI __attribute__((visibility ("protected")))
+
 /* mxml_cursor.c */
-int cursor_is_at_eof(const struct cursor *c);
-int cursor_is_at(const struct cursor *c, const char *s);
-int cursor_eatn(struct cursor *c, const char *s, unsigned int slen);
-int cursor_eatch(struct cursor *c, char ch);
-int cursor_eat_white(struct cursor *c);
-void cursor_skip_to_ch(struct cursor *c, char ch);
-void cursor_skip_content(struct cursor *c);
-void cursor_skip_to_close(struct cursor *c);
+INTAPI int cursor_is_at_eof(const struct cursor *c);
+INTAPI int cursor_is_at(const struct cursor *c, const char *s);
+INTAPI int cursor_eatn(struct cursor *c, const char *s, unsigned int slen);
+INTAPI int cursor_eatch(struct cursor *c, char ch);
+INTAPI int cursor_eat_white(struct cursor *c);
+INTAPI void cursor_skip_to_ch(struct cursor *c, char ch);
+INTAPI void cursor_skip_content(struct cursor *c);
+INTAPI void cursor_skip_to_close(struct cursor *c);
 
 /* mxml_cache.c */
 #if HAVE_CACHE
-void cache_init(struct mxml *m);
-const char *cache_get(struct mxml *m, const char *ekey, int ekeylen,
+INTAPI void cache_init(struct mxml *m);
+INTAPI const char *cache_get(struct mxml *m, const char *ekey, int ekeylen,
 		      size_t *sz_return);
-void cache_set(struct mxml *m, const char *ekey, int ekeylen,
+INTAPI void cache_set(struct mxml *m, const char *ekey, int ekeylen,
 	       const char *data, size_t size);
 #endif
 
 /* mxml_ekey.c */
-int expand_key(struct mxml *m, char *outbuf, size_t outbufsz, const char *key);
-int parse_uint(const char *s, int n, unsigned int *retval);
+INTAPI int expand_key(struct mxml *m, char *outbuf, size_t outbufsz, const char *key);
+INTAPI int parse_uint(const char *s, int n, unsigned int *retval);
 
 
 /* mxml_find.c */
-const char *find_key(struct mxml *m, const char *ekey,
+INTAPI const char *find_key(struct mxml *m, const char *ekey,
 	int ekeylen, size_t *sz_return);
 
 /* mxml_flatten.c */
-int flatten_edits(const struct mxml *m,
+INTAPI int flatten_edits(const struct mxml *m,
 	          int (*fn)(void *context, const struct token *token),
 	          void *context);
