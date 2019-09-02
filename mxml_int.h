@@ -28,9 +28,19 @@ struct edit {
 	enum edit_op { EDIT_DELETE, EDIT_SET, EDIT_APPEND } op;
 };
 
+/* A bounded text cursor */
 struct cursor {
 	const char *pos;
 	const char *end;
+};
+
+struct token {
+	enum { TOK_EMPTY, TOK_EOF, TOK_OPEN, TOK_VALUE, TOK_CLOSE } type;
+	char key[KEY_MAX];
+	int keylen;
+	const char *value;
+	int valuelen;		/* -1 if the value is NUL-terminated
+				 * and needs XML-encoding */
 };
 
 /* mxml_cursor.c */
@@ -61,4 +71,7 @@ int parse_uint(const char *s, int n, unsigned int *retval);
 const char *find_key(struct mxml *m, const char *ekey,
 	int ekeylen, size_t *sz_return);
 
-
+/* mxml_flatten.c */
+int flatten_edits(const struct mxml *m,
+	          int (*fn)(void *context, const struct token *token),
+	          void *context);

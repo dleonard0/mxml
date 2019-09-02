@@ -2,28 +2,41 @@
 We have an XML-formatted structured key-value store that is
 primarily READ, and sometimes written with small EDITs.
 
-So, this is a design for a small C library that can access
-an XML file efficiently using mmap, and providing access
-to elements with a custom search pattern.
-
-	a		text content of <a>...</a>
-	a.b.c		text content of first <a><b><c>...</c>...
-	a.b[3].c	same as  a.bs.b3.c
-	a.b[#]		same as  a.bs.total
-
-Processing instructions, comments, attributes are ignored.
-Namespaces are not understood. Whitespace in text elements
-is preserved. CDATA is understood.
-
-Because only some keys are needed in an invocation and often
-having a similar prefix to another one accessed, the entire
-file is not read, and a prefix cache is kept. 
-
-Returned values will be copies, because we have to
-NUL-terminate the values anyway, even if no entity
-escapes are used.
+This is a design for a small C library that can
+ - access an XML as a key-value store efficiently using mmap, and
+ - provide access to elements with a custom pattern syntax
+ - support in-memory editing (can be slow)
+ - write out the XML document with edits applied
 
 
+READING
+
+Tag pattern syntax:
+	a		names text content of toplevel <a>...</a>
+	a.b.c		names text content of first <a><b><c>...</c>
+	a.cat[3].name	same as  a.cats.cat3.name
+	a.cat[#]	same as  a.cats.total
+	a.cat[$]	same as  a.cats.cat8  assuming total=8
+
+Some XML limitations are:
+ - Processing instructions, comments, attributes are ignored.
+ - Namespaces are not understood.
+ - CDATA is not understood.
+ - Whitespace around text elements is preserved (XML says trim).
+
+Because usually only a few keys are read, and usually sharing
+a common prefix, the entire XML file need not be scanned. Instead,
+a lazy prefix cache is maintained and XML is only scanned enough to
+determine the beginning of relevant tags. (This differs from some
+libraries that initialise by building an entire in-memory DOM first.)
+
+I wondered if text values could be returned as raw references into
+the XML file, but because we would like to NUL-terminate the values
+anyway, and unescape entities, it looks like all value fetches will
+be in fresly-allocated memory.
+
+
+WRITING
 
 The second function of this library is to emit a new
 XML document, based on the read-only document from memory,
@@ -36,4 +49,5 @@ while applying a sequence of edits to it.
 This attempts to preserve the source document as closely
 as possible. The design is a stream processing stack;
 each stream processor handles the three messages
-<open>,text,</close> and may remove itself from the stream.
+<open>,text,</close>.
+

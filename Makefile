@@ -9,6 +9,8 @@ OBJS += mxml_cache.o
 OBJS += mxml_cursor.o
 OBJS += mxml_ekey.o
 OBJS += mxml_find.o
+OBJS += mxml_write.o
+OBJS += mxml_flatten.o
 
 check: t-mxml
 	./t-mxml

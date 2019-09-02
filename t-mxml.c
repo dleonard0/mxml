@@ -3,16 +3,66 @@
 #include <string.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <ctype.h>
 
 #include "mxml.h"
 
 #define MXML_NEW(s) mxml_new(s, sizeof s - 1)
+
+/**
+ * Compares two XML documents for equivalence, tolerant of some spaces.
+ * Ignores leading and trailing whitespace and
+ * whitespace before '<' and after '>'.
+ * This removes fragility introduced by tag indentation changes.
+ * @returns 1 if the two XML strings are equivalent with space equivalence.
+ */
+static int
+xml_streq(const char *a, const char *b)
+{
+
+#	define EATSPACE() do { \
+		while (*a && isspace(*a)) ++a; \
+		while (*b && isspace(*b)) ++b; \
+	    } while (0)
+
+	if (!a || !b)
+		return !a && !b;
+	EATSPACE();
+	while (*a && *b) {
+		if (*a == *b && *a == '>') {
+			a++, b++;
+			EATSPACE();
+		} else if (*a == *b) {
+			a++, b++;
+		} else {
+			EATSPACE();
+			if (*a == '>' && *b == '>')
+				a++, b++;
+			else
+				return !*a && !*b;
+		}
+	}
+	EATSPACE();
+	return !*a && !*b;
+#undef EATSPACE
+}
 
 #define assert_streq(a,b) do { \
 	const char *_a = (a); \
 	const char *_b = (b); \
 	if (_a == NULL ? _b != NULL : _b == NULL || strcmp(_a,_b) != 0) { \
 		fprintf(stderr, "%s:%d failed assert_streq(%s, %s)\n", \
+			__FILE__, __LINE__, #a, #b); \
+		fprintf(stderr, "%s != %s\n", _a, _b); \
+		abort(); \
+	} \
+    } while (0)
+
+#define assert_xml_streq(a,b) do { \
+	const char *_a = (a); \
+	const char *_b = (b); \
+	if (!xml_streq(_a,_b)) { \
+		fprintf(stderr, "%s:%d failed assert_xml_streq(%s, %s)\n", \
 			__FILE__, __LINE__, #a, #b); \
 		fprintf(stderr, "%s != %s\n", _a, _b); \
 		abort(); \
@@ -66,10 +116,33 @@
 	} \
     } while (0)
 
-int main() {
+struct buf {
+	char *data;
+	size_t alloc;
+	size_t len;
+};
+static int
+buf_write(void *context, const char *d, unsigned int len) {
+	struct buf *b = context;
+	while (b->len + len + 1 > b->alloc) {
+		b->data = realloc(b->data, b->alloc += 512);
+		if (!b->data) return -1;
+	}
+	memcpy(b->data + b->len, d, len);
+	b->len += len;
+	b->data[b->len] = '\0';
+	return len;
+}
+static void buf_init(struct buf *b) { memset(b, 0, sizeof *b); }
+static void buf_clear(struct buf *b) { b->len = 0; buf_write(b, "", 0); }
+static void buf_release(struct buf *b) { free(b->data); buf_init(b); }
 
+int main() {
+	struct buf buf;
 	struct mxml *m;
 	char *s;
+
+	buf_init(&buf);
 
 	/* With a trivial document */
 	m = MXML_NEW("<a>b</a>");
@@ -181,5 +254,57 @@ int main() {
 	assert0(mxml_delete(m, "top.dog[$]"));
 	assert_streq(s=mxml_get(m, "top.dog[#]"), "0"); free(s);
 
+	mxml_free(m);
+
+	/* Writing an unchanged XML document yields an identical output */
+	m = MXML_NEW("<?xml?>\n"
+		"<top>\n"
+		"  <foo>123</foo>\n"
+		"</top>\n");		/* The \n is outside the doc */
+	buf_clear(&buf);
+	assert(mxml_write(m, buf_write, &buf) > 0);
+	assert_streq("<?xml?>\n<top>\n  <foo>123</foo>\n</top>\n", buf.data);
+
+	/* Changing a value works */
+	assert0(mxml_set(m, "top.foo", "45678"));
+	buf_clear(&buf);
+	assert(mxml_write(m, buf_write, &buf) > 0);
+	assert_streq("<?xml?>\n<top>\n  <foo>45678</foo>\n</top>\n", buf.data);
+
+	/* A newly-added value appears in the output */
+	assert0(mxml_append(m, "top.bar", "BAR"));
+	buf_clear(&buf);
+	assert(mxml_write(m, buf_write, &buf) > 0);
+	assert_xml_streq("<?xml?>"
+	    "<top>"
+	      "<foo>45678</foo>"
+	      "<bar>BAR</bar>"
+	    "</top>", buf.data);
+
+	/* Adding a list of cats now. */
+	assert0(mxml_append(m, "top.cat[+].name", "Meow"));
+	assert0(mxml_append(m, "top.cat[$].colour", "white"));
+	assert0(mxml_append(m, "top.cat[+].name", "Kitty"));
+	assert0(mxml_append(m, "top.cat[$].colour", "pink"));
+	assert0(mxml_delete(m, "top.foo"));
+	buf_clear(&buf);
+	assert(mxml_write(m, buf_write, &buf) > 0);
+	assert_xml_streq("<?xml?>"
+	    "<top>"
+	      "<bar>BAR</bar>"
+	      "<cats>"
+	        "<cat1>"
+		  "<name>Meow</name>"
+		  "<colour>white</colour>"
+	        "</cat1>"
+		"<total>2</total>"	/* may move around */
+	        "<cat2>"
+		  "<name>Kitty</name>"
+		  "<colour>pink</colour>"
+	        "</cat2>"
+	      "</cats>"
+	    "</top>", buf.data);
+
+	buf_release(&buf);
 	mxml_free(m);
 }
