@@ -1,4 +1,7 @@
 *.o
+*.po
+*.a
+*.so
 TAGS
 tags
 t-mxml
