@@ -7,6 +7,7 @@ INSTALL ?= install
 #CFLAGS += -Wall -ggdb -O -pedantic
 #LDFLAGS += -ggdb
 PICFLAGS = -fPIC
+PICFLAGS += -fvisibility=hidden
 
 OBJS  = mxml.o
 OBJS += mxml_cache.o
