@@ -290,7 +290,7 @@ mxml_delete(struct mxml *m, const char *key)
 }
 
 int
-mxml_set(struct mxml *m, const char *key, const char *value)
+mxml_update(struct mxml *m, const char *key, const char *value)
 {
 	char ekey[KEY_MAX];
 	int ekeylen;

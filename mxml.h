@@ -65,13 +65,13 @@ int mxml_exists(struct mxml *m, const char *key);
 int mxml_delete(struct mxml *m, const char *key);
 
 /**
- * Sets the text value of an existing element.
+ * Updates the text value of an existing element.
  * @retval 0  success
  * @retval -1 [ENOENT] the element has been deleted or never existed.
  * @retval -1 [EINVAL] the key is malformed
  * @retval -1 [ENOMEM] out of memory
  */
-int mxml_set(struct mxml *m, const char *key, const char *value);
+int mxml_update(struct mxml *m, const char *key, const char *value);
 
 /**
  * Appends a new tag to its parent, creating parents as needed.

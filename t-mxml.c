@@ -162,7 +162,7 @@ int main() {
 	assert_streq(mxml_get(m, "b"), NULL);
 	assert_inteq(errno, ENOENT, "d");
 	/* Seeting a non-existent key fails */
-	assert_errno(mxml_set(m, "a.x", "foo"), ENOENT);
+	assert_errno(mxml_update(m, "a.x", "foo"), ENOENT);
 	/* Creating a new key succeeds */
 	assert0(mxml_append(m, "a.x", "foo"));
 	/* Creating an existing key fails */
@@ -191,7 +191,7 @@ int main() {
 	/* Entity decoding works */
 	assert_streq(s=mxml_get(m, "config.system.motd"), "Ben&Jerry's < Oak >"); free(s);
 	/* Can change a key's value */
-	assert0(mxml_set(m, "config.system.name", "fred"));
+	assert0(mxml_update(m, "config.system.name", "fred"));
 	assert_streq(s=mxml_get(m, "config.system.name"), "fred"); free(s);
 	mxml_free(m);
 
@@ -237,7 +237,7 @@ int main() {
 	/* [#] is invalid when used in the middle of a key pattern */
 	assert_null_errno(mxml_get(m, "top.unicorn[#].magic"), EINVAL);
 	/* can't write to the [#] */
-	assert_errno(mxml_set(m, "top.dog[#]", "9"), EPERM);
+	assert_errno(mxml_update(m, "top.dog[#]", "9"), EPERM);
 
 	/* Can insert a new unicorn */
 	assert0(mxml_append(m, "top.unicorn[+].name", "Charlie"));
@@ -268,7 +268,7 @@ int main() {
 	assert_streq("<?xml?>\n<top>\n  <foo>123</foo>\n</top>\n", buf.data);
 
 	/* Changing a value works */
-	assert0(mxml_set(m, "top.foo", "45678"));
+	assert0(mxml_update(m, "top.foo", "45678"));
 	buf_clear(&buf);
 	assert(mxml_write(m, buf_write, &buf) > 0);
 	assert_streq("<?xml?>\n<top>\n  <foo>45678</foo>\n</top>\n", buf.data);
