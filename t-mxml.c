@@ -193,6 +193,19 @@ int main() {
 	/* Can change a key's value */
 	assert0(mxml_update(m, "config.system.name", "fred"));
 	assert_streq(s=mxml_get(m, "config.system.name"), "fred"); free(s);
+
+	/* Can set an existing key */
+	assert0(mxml_set(m, "config.system.name", "barney"));
+	assert_streq(s=mxml_get(m, "config.system.name"), "barney"); free(s);
+
+	/* Can set a non-existing key */
+	assert0(mxml_set(m, "config.system.model", "SD4002"));
+	assert_streq(s=mxml_get(m, "config.system.model"), "SD4002"); free(s);
+
+	/* Can set a key to NULL and delete it */
+	assert0(mxml_set(m, "config.system.model", NULL));
+	assert(!mxml_exists(m, "config.system.model"));
+
 	mxml_free(m);
 
 	/* With a document containing lists: */

@@ -88,6 +88,19 @@ int mxml_update(struct mxml *m, const char *key, const char *value);
 int mxml_append(struct mxml *m, const char *key, const char *value);
 
 /**
+ * Updates, creates or deletes an element.
+ * If the value is NULL, then this function is the same as #mxml_delete().
+ * If the key already exists, this function is the same as #mxml_update().
+ * Otherwise this function is the same as #mxml_append().
+ * @param key   The key to set.
+ * @param value The text value to use; NULL means to delete.
+ * @retval 0  success
+ * @retval -1 [EINVAL] the key is malformed
+ * @retval -1 [ENOMEM] out of memory
+ */
+int mxml_set(struct mxml *m, const char *key, const char *value);
+
+/**
  * Expands a key containing [$] into its [integer] form.
  * @param key  the tag to expand
  * @return a malloc-provided string, containing the key but

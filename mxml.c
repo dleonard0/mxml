@@ -403,6 +403,22 @@ mxml_append(struct mxml *m, const char *key, const char *value)
 	return 0;
 }
 
+int
+mxml_set(struct mxml *m, const char *key, const char *value)
+{
+	int ret;
+
+	if (!value) {
+		ret = mxml_delete(m, key);
+	} else {
+		ret = mxml_append(m, key, value);
+		if (ret == -1 && errno == EEXIST)
+			ret = mxml_update(m, key, value);
+	}
+	return ret;
+}
+
+
 char *
 mxml_expand_key(struct mxml *m, const char *key)
 {
