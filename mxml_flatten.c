@@ -14,20 +14,32 @@
  * stream that represents the combined edits and XML.
  *
  * This non-recursive implementation uses a token carrier model that moves up
- * and down the edit list.
- * An 'empty' token carrier moves upwards (towards the source XML), and when
- * 'occupied' the carrier moves downwards (towards the writefn).
- * At the source XML (top end), the empty carrier is filled with the next
- * scanned OPEN, VALUE or CLOSE token, from the source XML and sent down.
- * At the writefn end, the token is removed from the carrier and emitted
- * through the writefn, and the empty carrier sent up.
- * A token holds its full tag path context and can be inspected at every level.
- * the OPEN, VALUE and CLOSE tokens of the same element have the same context
- * string, namely the dotted tag.
- * Each edit list entry may manipulate the carrier as it passes (in either
- * direction) and may manipulate its own state.
+ * and down the edit list. Conceptually, the token carrier shuttles XML tags
+ * drawn from the original XML document stream, wending through the edit list
+ * until it reaches the draining writefn at the bottom. The drain empties the
+ * token carrier of its token (and writes it) and the empty token carrier
+ * immediately change direction to rise back up towards the XML source.
+ * In this way, the execution storage requiements depends only on the edit
+ * list; it is independent of the XML document's depth which makes it suitable
+ * for large streams with limited memory.
  *
- * The general operation of edit entries is as follows:
+ * The rules are:
+ *  - An 'empty' token carrier moves upwards (towards the source XML), but when
+ *    occupied the carrier moves downwards (towards the writefn).
+ *  - At the source XML (top end), an empty carrier is filled with the next
+ *    scanned OPEN, VALUE or CLOSE token from the source XML, then it descends.
+ *  - At the writefn (bottom end), the token is removed from the carrier,
+ *    emitted through the writefn, and the carrier changes direction to rise.
+ *  - Each edit list entry may manipulate the carrier as it passes (in either
+ *    direction) and may manipulate its own local state. Filling or draining
+ *    the carrier will make it change direction.
+ *
+ * Tokens come in three types: OPEN, VALUE and CLOSE.
+ * A token holds its full tag path context (the dotted tag path) and can be
+ * inspected at every level by the edits. Tokens corresponding to
+ * the same XML element have the same context string.
+ *
+ * Edit entires can perform several operations on a token carrier:
  *   DELETE: If a descending token matches the path, remove it.
  *   SET:    After a descending OPEN passes, insert the new VALUE, and
  *           drop any other matching VALUES.
