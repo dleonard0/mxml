@@ -140,7 +140,6 @@ static void buf_release(struct buf *b) { free(b->data); buf_init(b); }
 int main() {
 	struct buf buf;
 	struct mxml *m;
-	char *s;
 	char **keys;
 	unsigned int nkeys;
 
@@ -152,7 +151,7 @@ int main() {
 	/*  The key "a" exists in <a>b</a>  */
 	assert(mxml_exists(m, "a"));
 	/*  The value of key "a" in <a>b</a> is "b" */
-	assert_streq(s = mxml_get(m, "a"), "b"); free(s);
+	assert_streq(mxml_get(m, "a"), "b");
 	/*  Many keys do not exist in <a>b</a>  */
 	assert(!mxml_exists(m, "aa"));
 	assert(!mxml_exists(m, "a.a"));
@@ -170,9 +169,9 @@ int main() {
 	/* Creating the root again fails */
 	assert_errno(mxml_append(m, "a", "foo"), EEXIST);
 	/* Can access a recently created key */
-	assert_streq(s = mxml_get(m, "a.x"), "foo"); free(s);
+	assert_streq(mxml_get(m, "a.x"), "foo");
 	/* Created keys don't disrupt a previous parent value */
-	assert_streq(s = mxml_get(m, "a"), "b"); free(s);
+	assert_streq(mxml_get(m, "a"), "b");
 	mxml_free(m);
 
 	/* With a more complicated document */
@@ -186,21 +185,21 @@ int main() {
 		"    <motd>Ben&amp;Jerry's &lt; Oak &gt;</motd>\n"
 		"  </system>\n"
 		"</config>\n");
-	assert_streq(s=mxml_get(m, "config.version"), "1"); free(s);
-	assert_streq(s=mxml_get(m, "config.system.name"), "localhost"); free(s);
+	assert_streq(mxml_get(m, "config.version"), "1");
+	assert_streq(mxml_get(m, "config.system.name"), "localhost");
 	/* Entity decoding works */
-	assert_streq(s=mxml_get(m, "config.system.motd"), "Ben&Jerry's < Oak >"); free(s);
+	assert_streq(mxml_get(m, "config.system.motd"), "Ben&Jerry's < Oak >");
 	/* Can change a key's value */
 	assert0(mxml_update(m, "config.system.name", "fred"));
-	assert_streq(s=mxml_get(m, "config.system.name"), "fred"); free(s);
+	assert_streq(mxml_get(m, "config.system.name"), "fred");
 
 	/* Can set an existing key */
 	assert0(mxml_set(m, "config.system.name", "barney"));
-	assert_streq(s=mxml_get(m, "config.system.name"), "barney"); free(s);
+	assert_streq(mxml_get(m, "config.system.name"), "barney");
 
 	/* Can set a non-existing key */
 	assert0(mxml_set(m, "config.system.model", "SD4002"));
-	assert_streq(s=mxml_get(m, "config.system.model"), "SD4002"); free(s);
+	assert_streq(mxml_get(m, "config.system.model"), "SD4002");
 
 	/* Can set a key to NULL and delete it */
 	assert0(mxml_set(m, "config.system.model", NULL));
@@ -231,22 +230,22 @@ int main() {
 		     "<total>1</total>"
 		  "</cats>"
 		"</top>");
-	assert_streq(s=mxml_get(m, "top.dog[1].name"), "Fido"); free(s);
-	assert_streq(s=mxml_get(m, "top.dog[2].colour"), "Spotty"); free(s);
+	assert_streq(mxml_get(m, "top.dog[1].name"), "Fido");
+	assert_streq(mxml_get(m, "top.dog[2].colour"), "Spotty");
 	assert_null_errno(mxml_get(m, "top.dog[3].name"), ENOENT);
 	assert_null_errno(mxml_get(m, "top.dog[0].name"), EINVAL);
 	/* Accessing non-existent list entries returnes ENOENT */
 	assert_null_errno(mxml_get(m, "top.rhinoceros[1].horn"), ENOENT);
 	assert_null_errno(mxml_get(m, "top.unicorn[1].magic"), ENOENT);
 	/* [#] expands to the total count of a valid list */
-	assert_streq(s=mxml_get(m, "top.dog[#]"), "2"); free(s);
+	assert_streq(mxml_get(m, "top.dog[#]"), "2");
 	/* [#] expands to 0 if the list doesn't exist */
-	assert_streq(s=mxml_get(m, "top.unicorn[#]"), "0"); free(s);
+	assert_streq(mxml_get(m, "top.unicorn[#]"), "0");
 	/* [$] expands to the last item */
 	assert_null_errno(mxml_get(m, "top.unicorn[$].magic"), ENOENT);
-	assert_streq(s=mxml_get(m, "top.cat[$].lives"), "3"); free(s);
-	assert_streq(s=mxml_expand_key(m, "top.dog[$]"), "top.dog[2]"); free(s);
-	assert_streq(s=mxml_expand_key(m, "top.unicorn[$].magic"), "top.unicorn[0].magic"); free(s);
+	assert_streq(mxml_get(m, "top.cat[$].lives"), "3");
+	assert_streq(mxml_expand_key(m, "top.dog[$]"), "top.dog[2]");
+	assert_streq(mxml_expand_key(m, "top.unicorn[$].magic"), "top.unicorn[0].magic");
 	/* [#] is invalid when used in the middle of a key pattern */
 	assert_null_errno(mxml_get(m, "top.unicorn[#].magic"), EINVAL);
 	/* can't write to the [#] */
@@ -254,20 +253,20 @@ int main() {
 
 	/* Can insert a new unicorn */
 	assert0(mxml_append(m, "top.unicorn[+].name", "Charlie"));
-	assert_streq(s=mxml_get(m, "top.unicorn[$].name"), "Charlie"); free(s);
-	assert_streq(s=mxml_get(m, "top.unicorn[#]"), "1"); free(s);
+	assert_streq(mxml_get(m, "top.unicorn[$].name"), "Charlie");
+	assert_streq(mxml_get(m, "top.unicorn[#]"), "1");
 	/* Can delete an entire tree */
 	assert0(mxml_delete(m, "top.cat[*]"));
-	assert_streq(s=mxml_get(m, "top.cat[#]"), "0"); free(s);
+	assert_streq(mxml_get(m, "top.cat[#]"), "0");
 
 	/* Deleting the last element [$] updates .total [#] */
-	assert_streq(s=mxml_get(m, "top.dog[#]"), "2"); free(s);
+	assert_streq(mxml_get(m, "top.dog[#]"), "2");
 	assert0(mxml_delete(m, "top.dog[$]"));
-	assert_streq(s=mxml_get(m, "top.dog[#]"), "1"); free(s);
+	assert_streq(mxml_get(m, "top.dog[#]"), "1");
 	assert0(mxml_delete(m, "top.dog[$]"));
-	assert_streq(s=mxml_get(m, "top.dog[#]"), "0"); free(s);
+	assert_streq(mxml_get(m, "top.dog[#]"), "0");
 	assert0(mxml_delete(m, "top.dog[$]"));
-	assert_streq(s=mxml_get(m, "top.dog[#]"), "0"); free(s);
+	assert_streq(mxml_get(m, "top.dog[#]"), "0");
 
 	mxml_free(m);
 

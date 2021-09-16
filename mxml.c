@@ -59,11 +59,11 @@ unencode_xml_into(const struct cursor *init_curs, char *out)
 /**
  * Unencodes XML into a new string.
  * Expands the XML entities, (&lt; &gt; &amp;)
- * @returns NUL-terminated string allocated by #malloc.
+ * @returns NUL-terminated string allocated by #buffer_malloc.
  * @retval NULL [ENOMEM] could not allocate memory.
  */
 static char *
-unencode_xml(const char *content, size_t contentsz)
+unencode_xml(struct mxml *m, const char *content, size_t contentsz)
 {
 	size_t retsz = 0;
 	struct cursor c;
@@ -72,11 +72,13 @@ unencode_xml(const char *content, size_t contentsz)
 	c.pos = content;
 	c.end = content + contentsz;
 	retsz = unencode_xml_into(&c, NULL);
-	ret = malloc(retsz + 1);
-	if (ret) {
-		unencode_xml_into(&c, ret);
-		ret[retsz] = '\0';
-	}
+	ret = realloc(m->buffer, retsz + 1);
+	if (!ret)
+		return NULL;
+	m->buffer = ret;
+	m->buffersz = retsz + 1;
+	unencode_xml_into(&c, ret);
+	ret[retsz] = '\0';
 	return ret;
 }
 
@@ -110,6 +112,8 @@ mxml_new(const char *start, unsigned int size)
 	m->start = start;
 	m->size = size;
 	m->edits = NULL;
+	m->buffer = NULL;
+	m->buffersz = 0;
 #if HAVE_CACHE
 	cache_init(m);
 #endif
@@ -129,6 +133,7 @@ mxml_free(struct mxml *m)
 		value_free(e->value);
 		free(e);
 	}
+	free(m->buffer);
 	free(m);
 }
 
@@ -157,7 +162,7 @@ mxml_get(struct mxml *m, const char *key)
 			return strdup("0");
 		return NULL;
 	}
-	return unencode_xml(content, contentsz);
+	return unencode_xml(m, content, contentsz);
 }
 
 /**
@@ -418,11 +423,9 @@ mxml_set(struct mxml *m, const char *key, const char *value)
 	return ret;
 }
 
-
 char *
 mxml_expand_key(struct mxml *m, const char *key)
 {
-	char outbuf[KEY_MAX];
 	unsigned int outlen = 0;
 	const char *brack;
 	const char *first;
@@ -445,21 +448,21 @@ mxml_expand_key(struct mxml *m, const char *key)
 			total = 0;
 		free(tkey);
 
-		n = snprintf(&outbuf[outlen], sizeof outbuf - outlen,
+		n = snprintf(&m->expandbuf[outlen], sizeof m->expandbuf - outlen,
 			"%.*s[%u]", (int)(brack - first), first, total);
 		outlen += n;
-		if (outlen >= sizeof outbuf) {
+		if (outlen >= sizeof m->expandbuf) {
 			errno = ENOMEM;
 			return NULL;
 		}
 		first = endbrack;
 	}
-	n = snprintf(&outbuf[outlen], sizeof outbuf - outlen, "%s", first);
+	n = snprintf(&m->expandbuf[outlen], sizeof m->expandbuf - outlen, "%s", first);
 	outlen += n;
-	if (outlen >= sizeof outbuf) {
+	if (outlen >= sizeof m->expandbuf) {
 		errno = ENOMEM;
 		return NULL;
 	}
 
-	return strndup(outbuf, outlen);
+	return m->expandbuf;
 }

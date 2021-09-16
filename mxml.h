@@ -36,7 +36,9 @@ void mxml_free(struct mxml *m);
  *	      The special key "tag[$]" expands to "tags.tagN" where "N"
  *	      is the value of "tags.total".
  *	      The following chars are not permitted in tag names: . # % [
- * @returns the unescaped content in a string allocated by malloc
+ * @returns pointer to a buffer contaiing the unescaped content.
+ *          The buffer will be invalidated by the next call to #mxml_get()
+ *          or #mxml_free().
  * @retval NULL [ENOENT] the key does not exist
  * @retval NULL [EINVAL] the key was malformed
  * @retval NULL [ENOMEM] the key was too long
@@ -103,8 +105,10 @@ int mxml_set(struct mxml *m, const char *key, const char *value);
 /**
  * Expands a key containing [$] into its [integer] form.
  * @param key  the tag to expand
- * @return a malloc-provided string, containing the key but
- *         with [$] replaced by [<integer>],
+ * @return pointer to a buffer containing the @a key but
+ *         with [$] replaced by [<integer>].
+ *         The buffer will be invalidated by the next call to
+ *         #mxml_expand_key() or #mxml_free().
  * @retval NULL [ENOMEM] cannot allocate memory
  * @retval NULL [EINVAL] the key is malformed
  * @retval NULL [ENOENT] the key is malformed

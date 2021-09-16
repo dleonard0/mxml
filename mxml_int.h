@@ -21,6 +21,9 @@ struct mxml {
 	} cache[CACHE_MAX];
 	unsigned int cache_next;
 #endif
+	char *buffer;		/* used by mxml_get() */
+	size_t buffersz;
+	char expandbuf[KEY_MAX]; /* used by mxml_expand_key() */
 };
 
 /* An edit record. These are always held unintegrated */
