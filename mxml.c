@@ -103,7 +103,7 @@ value_free(char *value)
 
 
 struct mxml *
-mxml_new(const char *start, unsigned int size)
+mxml_new(const char *start, size_t size)
 {
 	struct mxml *m = malloc(sizeof *m);
 

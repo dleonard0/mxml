@@ -8,7 +8,7 @@ simple XML config file format used by Opengear console server firmware.
 
 ```c
 struct mxml;
-struct mxml *mxml_new(const char *base, unsigned int len);
+struct mxml *mxml_new(const char *xml, size_t xml_len);
 void         mxml_free(struct mxml *m);
 
 const char * mxml_get(struct mxml *m, const char *key);

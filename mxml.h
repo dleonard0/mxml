@@ -13,12 +13,12 @@ struct mxml;
  *     <li>Only uses entities &lt; &amp; &gt;
  *     <li>Only has text in leaf elements
  * </ul>
- * @param base Pointer to read-only, in-memory XML source.
- * @param len Length of the XML source in bytes.
+ * @param xml Pointer to read-only, in-memory XML source.
+ * @param xml_len Length of the XML source in bytes.
  * @returns a context structure. Free it with #mxml_close().
  * @retval NULL on error, sets #errno.
  */
-struct mxml *mxml_new(const char *base, unsigned int len);
+struct mxml *mxml_new(const char *xml, size_t xml_len);
 
 /**
  * Closes the XML file opened by #xml_open().
