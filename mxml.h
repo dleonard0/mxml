@@ -1,3 +1,4 @@
+#include <stdlib.h>
 
 /** Lightweight, in-memory XML parser */
 struct mxml;
@@ -117,14 +118,19 @@ char *mxml_expand_key(struct mxml *m, const char *key);
 
 /**
  * Writes out an XML document with edits.
- * @param writefn Output callback function. If the callback function
- *                returns -1, then this function aborts and returns -1 too.
+ * @param writefn Output callback function.
+ *                The @a size argument will always be 1, and the @a nmemb
+ *                argument will be the size of the data.
+ *                If the callback function returns a number smaller than
+ *                @a nmemb, then #mxml_write() will immediately stop and
+ *                return the accumulated reults, or -1.
+ *                This argument is intentionally compatible with #fwrite().
  * @param context Context value passed to @a writefn.
- * @returns the sum of the return values from @a writefn.
+ * @returns the sum of the returned values from @a writefn.
  * @retval -1 if @a writefn returned -1
  */
 int mxml_write(const struct mxml *m,
-	int (*writefn)(void *context, const char *text, unsigned int len),
+	size_t (*writefn)(const void *ptr, size_t size, size_t nmemb, void *context),
 	void *context);
 
 /**

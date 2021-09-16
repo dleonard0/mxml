@@ -53,7 +53,8 @@ xml_streq(const char *a, const char *b)
 	if (_a == NULL ? _b != NULL : _b == NULL || strcmp(_a,_b) != 0) { \
 		fprintf(stderr, "%s:%d failed assert_streq(%s, %s)\n", \
 			__FILE__, __LINE__, #a, #b); \
-		fprintf(stderr, "%s != %s\n", _a, _b); \
+		fprintf(stderr, "%s != %s\n", _a ? _a : "(null)", \
+		        _b ? _b : "(null)"); \
 		abort(); \
 	} \
     } while (0)
@@ -121,23 +122,29 @@ struct buf {
 	size_t alloc;
 	size_t len;
 };
-static int
-buf_write(void *context, const char *d, unsigned int len) {
+static size_t
+buf_write(const void *d, size_t sz, size_t len, void *context)
+{
 	struct buf *b = context;
-	while (b->len + len + 1 > b->alloc) {
-		b->data = realloc(b->data, b->alloc += 512);
-		if (!b->data) return -1;
+	while (b->len + len * sz + 1 > b->alloc) {
+		char *newdata = realloc(b->data, b->alloc + 512);
+		if (!newdata)
+			return -1;
+		b->data = newdata;
+		b->alloc += 512;
 	}
-	memcpy(b->data + b->len, d, len);
-	b->len += len;
+	memcpy(b->data + b->len, d, len * sz);
+	b->len += len * sz;
 	b->data[b->len] = '\0';
-	return len;
+	return len * sz;
 }
 static void buf_init(struct buf *b) { memset(b, 0, sizeof *b); }
-static void buf_clear(struct buf *b) { b->len = 0; buf_write(b, "", 0); }
+static void buf_clear(struct buf *b) { b->len = 0; if (b->alloc) b->data[0] = '\0'; }
 static void buf_release(struct buf *b) { free(b->data); buf_init(b); }
 
-int main() {
+int
+main()
+{
 	struct buf buf;
 	struct mxml *m;
 	char **keys;

@@ -4,7 +4,7 @@
 #include "mxml_int.h"
 
 struct write_token_context {
-	int (*writefn)(void *context, const char *text, unsigned int len);
+	size_t (*writefn)(const void *ptr, size_t size, size_t nmemb, void *context);
 	void *context;
 };
 
@@ -18,7 +18,7 @@ write_token(void *context, const struct token *token)
 	int ret = 0;
 
 	if (token->valuelen > 0) {
-		return c->writefn(c->context, token->value, token->valuelen);
+		return c->writefn(token->value, 1, token->valuelen, c->context);
 	}
 	if (token->valuelen == 0)
 		return 0;
@@ -27,7 +27,7 @@ write_token(void *context, const struct token *token)
 		int _len = (len); \
 		if (_len) { \
 			const char *_s = (s); \
-			int _n = c->writefn(c->context, _s, _len); \
+			int _n = c->writefn(_s, 1, _len, c->context); \
 			if (_n == -1) return -1; \
 			ret += _n; \
 		} \
@@ -52,7 +52,7 @@ write_token(void *context, const struct token *token)
 
 int
 mxml_write(const struct mxml *m,
-	   int (*writefn)(void *context, const char *text, unsigned int len),
+	   size_t (*writefn)(const void *ptr, size_t size, size_t nmemb, void *context),
 	   void *context)
 {
 	struct write_token_context c = {
