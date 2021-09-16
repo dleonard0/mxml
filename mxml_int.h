@@ -62,7 +62,7 @@ EXPORT char **mxml_keys();
 EXPORT struct mxml *mxml_new();
 EXPORT int mxml_set();
 EXPORT int mxml_update();
-EXPORT int mxml_write();
+EXPORT size_t mxml_write();
 
 /* mxml_cursor.c */
 int cursor_is_at_eof(const struct cursor *c);
@@ -93,6 +93,6 @@ const char *find_key(struct mxml *m, const char *ekey,
 	int ekeylen, size_t *sz_return);
 
 /* mxml_flatten.c */
-int flatten_edits(const struct mxml *m,
-	          int (*fn)(void *context, const struct token *token),
-	          void *context);
+size_t flatten_edits(const struct mxml *m,
+	size_t (*fn)(void *context, const struct token *token),
+	void *context);

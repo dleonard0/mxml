@@ -8,14 +8,14 @@ struct write_token_context {
 	void *context;
 };
 
-static int
+static size_t
 write_token(void *context, const struct token *token)
 {
 	struct write_token_context *c = context;
 	const char *first;
 	const char *entity;
 	const char *text;
-	int ret = 0;
+	size_t ret = 0;
 
 	if (token->valuelen > 0) {
 		return c->writefn(token->value, 1, token->valuelen, c->context);
@@ -27,7 +27,7 @@ write_token(void *context, const struct token *token)
 		int _len = (len); \
 		if (_len) { \
 			const char *_s = (s); \
-			int _n = c->writefn(_s, 1, _len, c->context); \
+			size_t _n = c->writefn(_s, 1, _len, c->context); \
 			if (_n == -1) return -1; \
 			ret += _n; \
 		} \
@@ -50,7 +50,7 @@ write_token(void *context, const struct token *token)
 #undef OUT
 }
 
-int
+size_t
 mxml_write(const struct mxml *m,
 	   size_t (*writefn)(const void *ptr, size_t size, size_t nmemb, void *context),
 	   void *context)

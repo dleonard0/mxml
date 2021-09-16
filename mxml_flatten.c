@@ -76,7 +76,7 @@ struct editstate {
 			int init;
 		} xml;
 		struct writestate {
-			int (*fn)(void *context, const struct token *token);
+			size_t (*fn)(void *context, const struct token *token);
 			void *context;
 		} write;
 		struct setstate {
@@ -297,7 +297,7 @@ fputesc(FILE *f, const char *s, int len)
  * We pass through the OPEN, and inject our own VALUE immediately next.
  * Then we drop all the other VALUEs passed to us.
  */
-static int
+static size_t
 process_set(struct setstate *set, struct token **carrier)
 {
 	struct token *token = *carrier;
@@ -326,7 +326,7 @@ process_set(struct setstate *set, struct token **carrier)
  * hold back and insert tokens. This function can advance
  * the app->state and replace the token in the carrier.
  */
-static int
+static size_t
 process_append(struct appendstate *app, struct token **carrier)
 {
 	struct token *token = *carrier;
@@ -389,7 +389,7 @@ process_append(struct appendstate *app, struct token **carrier)
 	};
 }
 
-static int
+static size_t
 process_token(struct editstate *s, struct token **carrier)
 {
 	struct token *token = *carrier;
@@ -428,12 +428,12 @@ process_token(struct editstate *s, struct token **carrier)
 /**
  * Flatten the edit list and XML source document into a token stream.
  */
-int
+size_t
 flatten_edits(const struct mxml *m,
-	      int (*fn)(void *context, const struct token *token),
+	      size_t (*fn)(void *context, const struct token *token),
 	      void *context)
 {
-	int ret = 0;
+	size_t ret = 0;
 	struct editstate *states, *curstate;
 	unsigned int nstates = 0;
 	struct token *token;	/* token carrier */
@@ -454,7 +454,7 @@ flatten_edits(const struct mxml *m,
 	curstate = states;
 	token = NULL;
 	while (curstate) {
-		int n;
+		size_t n;
 #ifdef DEBUG
 		static int previd = 0;
 		int id = (curstate - states);
@@ -523,8 +523,8 @@ flatten_edits(const struct mxml *m,
 		/* Process the token carrier with the current edit entry,
 		 * which may involve output, which we accumulate in ret. */
 		n = process_token(curstate, &token);
-		if (n == -1)
-			return -1;
+		if (n < 0)
+			return n;
 		ret += n;
 
 		/* If the carrier is empty, it floats up to the XML source;

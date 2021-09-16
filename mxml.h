@@ -129,7 +129,7 @@ char *mxml_expand_key(struct mxml *m, const char *key);
  * @returns the sum of the returned values from @a writefn.
  * @retval -1 if @a writefn returned -1
  */
-int mxml_write(const struct mxml *m,
+size_t mxml_write(const struct mxml *m,
 	size_t (*writefn)(const void *ptr, size_t size, size_t nmemb, void *context),
 	void *context);
 

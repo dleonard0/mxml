@@ -8,7 +8,7 @@ struct keys_context {
 	unsigned int nkeys;
 };
 
-static int
+static size_t
 keys_token(void *context, const struct token *token)
 {
 	if (token->type == TOK_OPEN) {
