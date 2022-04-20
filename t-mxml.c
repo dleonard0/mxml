@@ -9,10 +9,15 @@
 
 #define MXML_NEW(s) mxml_new(s, sizeof s - 1)
 
+#ifdef DEBUG
+# define verbose_printf(...)	fprintf(stderr, __VA_ARGS__)
+#else
+# define verbose_printf(...)	/* nothing */
+#endif
+
 /**
  * Compares two XML documents for equivalence, tolerant of some spaces.
- * Ignores leading and trailing whitespace and
- * whitespace before '<' and after '>'.
+ * Treats />[:space:]*</ as equal to "><".
  * This removes fragility introduced by tag indentation changes.
  * @returns 1 if the two XML strings are equivalent with space equivalence.
  */
@@ -29,17 +34,16 @@ xml_streq(const char *a, const char *b)
 		return !a && !b;
 	EATSPACE();
 	while (*a && *b) {
-		if (*a == *b && *a == '>') {
-			a++, b++;
+		if (*a == *b && *b == '>') {
+			const char *asave = ++a;
+			const char *bsave = ++b;
 			EATSPACE();
+			if ((*a && *a != '<') || (*b && *b != '<'))
+				a = asave, b = bsave;
 		} else if (*a == *b) {
 			a++, b++;
 		} else {
-			EATSPACE();
-			if (*a == '>' && *b == '>')
-				a++, b++;
-			else
-				return !*a && !*b;
+			return !*a && !*b;
 		}
 	}
 	EATSPACE();
@@ -47,14 +51,68 @@ xml_streq(const char *a, const char *b)
 #undef EATSPACE
 }
 
+#define QUOTE_NO_XML_SPACES		1
+
+/* quote as C string literal, for debug output */
+static const char *
+cquoten(const char *s, int len, int flags)
+{
+	static char buf[1024];
+	char *b = buf;
+	char ch;
+
+	if (!s)
+		return "NULL";
+
+	*b++ = '"';
+	while ((flags & QUOTE_NO_XML_SPACES) && *s && isspace(*s))
+		s++;
+	while ((ch = *s++)) {
+		switch (ch) {
+		case '\n': *b++ = '\\'; *b++ = 'n'; break;
+		case '\\': *b++ = '\\'; *b++ = '\\'; break;
+		case '\r': *b++ = '\\'; *b++ = '\r'; break;
+		case '\t': *b++ = '\\'; *b++ = '\t'; break;
+		case '"':  *b++ = '\\'; *b++ = '"'; break;
+		default:
+			if (ch < ' ' || ch > '~') {
+				*b++ = '\\';
+				*b++ = 'x';
+				*b++ = "0123456789abcdef"[(ch >> 4) & 0xf];
+				*b++ = "0123456789abcdef"[(ch >> 0) & 0xf];
+			} else
+				*b++ = ch;
+			if (ch == '>' && (flags & QUOTE_NO_XML_SPACES)) {
+				const char *ssave = s;
+				while (*s && isspace(*s))
+					s++;
+				if (*s && *s != '<')
+					s = ssave;
+			}
+		}
+	}
+	*b++ = '"';
+	*b = '\0';
+	return buf;
+}
+
+static const char *
+cquote(const char *s, int flags)
+{
+	return cquoten(s, strlen(s), flags);
+}
+
 #define assert_streq(a,b) do { \
 	const char *_a = (a); \
 	const char *_b = (b); \
-	if (_a == NULL ? _b != NULL : _b == NULL || strcmp(_a,_b) != 0) { \
-		fprintf(stderr, "%s:%d failed assert_streq(%s, %s)\n", \
+	verbose_printf("%s:%d: assert_streq(%s, %s)\n", \
 			__FILE__, __LINE__, #a, #b); \
-		fprintf(stderr, "%s != %s\n", _a ? _a : "(null)", \
-		        _b ? _b : "(null)"); \
+	if (_a == NULL ? _b != NULL : _b == NULL || strcmp(_a,_b) != 0) { \
+		fprintf(stderr, "%s:%d: failed assert_streq(%s, %s)\n", \
+			__FILE__, __LINE__, #a, #b); \
+		fprintf(stderr, "%s:%d: failed because:\n    %s\n", \
+			__FILE__, __LINE__, cquote(_a, 0)); \
+		fprintf(stderr, " != %s\n", cquote(_b, 0)); \
 		abort(); \
 	} \
     } while (0)
@@ -62,10 +120,14 @@ xml_streq(const char *a, const char *b)
 #define assert_xml_streq(a,b) do { \
 	const char *_a = (a); \
 	const char *_b = (b); \
-	if (!xml_streq(_a,_b)) { \
-		fprintf(stderr, "%s:%d failed assert_xml_streq(%s, %s)\n", \
+	verbose_printf("%s:%d: assert_xml_streq(%s, %s)\n", \
 			__FILE__, __LINE__, #a, #b); \
-		fprintf(stderr, "%s != %s\n", _a, _b); \
+	if (!xml_streq(_a,_b)) { \
+		fprintf(stderr, "%s:%d: failed assert_xml_streq(%s, %s)\n", \
+			__FILE__, __LINE__, #a, #b); \
+		fprintf(stderr, "%s:%d: failed because:\n    %s\n", \
+			__FILE__, __LINE__, cquote(_a, QUOTE_NO_XML_SPACES)); \
+		fprintf(stderr, " != %s\n", cquote(_b, QUOTE_NO_XML_SPACES)); \
 		abort(); \
 	} \
     } while (0)
@@ -73,6 +135,8 @@ xml_streq(const char *a, const char *b)
 #define assert_inteq(a,b,fmt) do { \
 	typeof(a) _a = (a); \
 	typeof(b) _b = (b); \
+	verbose_printf("%s:%d: assert_inteq(%s, %s, %s)\n", \
+			__FILE__, __LINE__, #a, #b, #fmt); \
 	if (_a != _b) { \
 		fprintf(stderr, "%s:%d failed assert_inteq(%s, %s)\n", \
 			__FILE__, __LINE__, #a, #b); \
@@ -84,6 +148,7 @@ xml_streq(const char *a, const char *b)
 #define assert0(e) do { \
 	int _ret; \
 	errno = 0; \
+	verbose_printf("%s:%d: assert0(%s)\n", __FILE__, __LINE__, #e); \
 	if ((_ret = (e))) { \
 		fprintf(stderr, \
 			"%s:%d failed assert0(%s)\nret %d, errno %d %s\n", \
@@ -95,6 +160,8 @@ xml_streq(const char *a, const char *b)
 
 #define assert_errno(e, expected_errno) do { \
 	int _ret; \
+	verbose_printf("%s:%d: assert_errno(%s, %s)\n", \
+		__FILE__, __LINE__, #e, #expected_errno); \
 	errno = 0; \
 	if ((_ret = (e)) != -1 || errno != (expected_errno)) { \
 		fprintf(stderr, \
@@ -107,6 +174,8 @@ xml_streq(const char *a, const char *b)
 
 #define assert_null_errno(e, expected_errno) do { \
 	const void * _ret; \
+	verbose_printf("%s:%d: assert_null_errno(%s, %s)\n", \
+		__FILE__, __LINE__, #e, #expected_errno); \
 	errno = 0; \
 	if ((_ret = (e)) != NULL || errno != (expected_errno)) { \
 		fprintf(stderr, \
@@ -126,6 +195,8 @@ static size_t
 buf_write(const void *d, size_t sz, size_t len, void *context)
 {
 	struct buf *b = context;
+	verbose_printf("buf_write(%s, %zu, %zu)\n",
+		cquoten(d, len * sz, 0), sz, len);
 	while (b->len + len * sz + 1 > b->alloc) {
 		char *newdata = realloc(b->data, b->alloc + 512);
 		if (!newdata)
@@ -149,6 +220,16 @@ main()
 	struct mxml *m;
 	char **keys;
 	unsigned int nkeys;
+
+	/* Internal test of xml_streq() */
+	assert(xml_streq("", ""));
+	assert(xml_streq("a", "a"));
+	assert(!xml_streq("a", ""));
+	assert(!xml_streq("", "a"));
+	assert(xml_streq(" foo ", "foo"));
+	assert(xml_streq(">\n<", "><"));
+	assert(!xml_streq(">foo<", "> foo<"));
+	assert(!xml_streq(">foo<", ">foo <"));
 
 	buf_init(&buf);
 
