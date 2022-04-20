@@ -24,6 +24,7 @@ ends_with(const char *s, const char *end)
 
 /**
  * Copies/calculates unencoded form of XML.
+ * Expands &lt &gt &amp and CDATA.
  * @param out (optional) buffer to copy unencoded data to.
  * @returns number of bytes copied into @a out.
  */
@@ -46,6 +47,15 @@ unencode_xml_into(const struct cursor *init_curs, char *out)
 			cursor_skip_to_ch(&c, ';');
 			if (!cursor_is_at_eof(&c))
 				c.pos++;
+		} else if (ch == '<' && cursor_eatn(&c, "![CDATA[",
+						    strlen("![CDATA[")))
+		{
+			while (!cursor_is_at_eof(&c)) {
+				ch = *c.pos++;
+				if (ch == ']' && cursor_eatn(&c, "]>", 2))
+					break;
+				OUT(ch);
+			}
 		} else if (ch == '<') {
 			break;
 		} else {
@@ -58,7 +68,7 @@ unencode_xml_into(const struct cursor *init_curs, char *out)
 
 /**
  * Unencodes XML into a new string.
- * Expands the XML entities, (&lt; &gt; &amp;)
+ * Expands the XML entities, (&lt; &gt; &amp;) and CDATA
  * @returns NUL-terminated string allocated by #buffer_malloc.
  * @retval NULL [ENOMEM] could not allocate memory.
  */

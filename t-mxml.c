@@ -314,12 +314,14 @@ main()
 		        "<name>Felix</name>"
 			"<colour>Black</colour>"
 			"<lives>3</lives>"
+			"<tag><![CDATA[ <foo> ]]></tag>"
 		     "</cat1>"
 		     "<total>1</total>"
 		  "</cats>"
 		"</top>");
 	assert_streq(mxml_get(m, "top.dog[1].name"), "Fido");
 	assert_streq(mxml_get(m, "top.dog[2].colour"), "Spotty");
+	assert_streq(mxml_get(m, "top.cat[1].tag"), " <foo> ");
 	assert_null_errno(mxml_get(m, "top.dog[3].name"), ENOENT);
 	assert_null_errno(mxml_get(m, "top.dog[0].name"), EINVAL);
 	/* Accessing non-existent list entries returnes ENOENT */
@@ -362,25 +364,35 @@ main()
 	m = MXML_NEW("<?xml?>\n"
 		"<top>\n"
 		"  <foo>123</foo>\n"
+		"  <cdata><![CDATA[ unchanged ]]></cdata>\n"
 		"</top>\n");		/* The \n is outside the doc */
 	buf_clear(&buf);
 	assert(mxml_write(m, buf_write, &buf) > 0);
-	assert_streq("<?xml?>\n<top>\n  <foo>123</foo>\n</top>\n", buf.data);
+	assert_streq("<?xml?>\n"
+	        "<top>\n"
+		"  <foo>123</foo>\n"
+		"  <cdata><![CDATA[ unchanged ]]></cdata>\n"
+		"</top>\n", buf.data);
 
 	/* Changing a value works */
 	assert0(mxml_update(m, "top.foo", "45678"));
 	buf_clear(&buf);
 	assert(mxml_write(m, buf_write, &buf) > 0);
-	assert_streq("<?xml?>\n<top>\n  <foo>45678</foo>\n</top>\n", buf.data);
+	assert_streq("<?xml?>\n"
+		"<top>\n"
+		"  <foo>45678</foo>\n"
+		"  <cdata><![CDATA[ unchanged ]]></cdata>\n"
+		"</top>\n", buf.data);
 
 	/* A newly-added value appears in the output */
-	assert0(mxml_append(m, "top.bar", "BAR"));
+	assert0(mxml_append(m, "top.bar", " BAR "));
 	buf_clear(&buf);
 	assert(mxml_write(m, buf_write, &buf) > 0);
 	assert_xml_streq("<?xml?>"
 	    "<top>"
 	      "<foo>45678</foo>"
-	      "<bar>BAR</bar>"
+	      "<cdata><![CDATA[ unchanged ]]></cdata>\n"
+	      "<bar> BAR </bar>"
 	    "</top>", buf.data);
 
 	/* Adding a list of cats now. */
@@ -393,7 +405,8 @@ main()
 	assert(mxml_write(m, buf_write, &buf) > 0);
 	assert_xml_streq("<?xml?>"
 	    "<top>"
-	      "<bar>BAR</bar>"
+	      "<cdata><![CDATA[ unchanged ]]></cdata>\n"
+	      "<bar> BAR </bar>"
 	      "<cats>"
 	        "<cat1>"
 		  "<name>Meow</name>"
@@ -411,17 +424,18 @@ main()
 
 	/* We can extract the expanded keys */
 	assert((keys = mxml_keys(m, &nkeys)) != NULL);
-	assert(nkeys == 10);
+	assert(nkeys == 11);
 	assert_streq(keys[0], "top");
-	assert_streq(keys[1], "top.bar");
-	assert_streq(keys[2], "top.cats");
-	assert_streq(keys[3], "top.cats.cat1");
-	assert_streq(keys[4], "top.cats.cat1.name");
-	assert_streq(keys[5], "top.cats.cat1.colour");
-	assert_streq(keys[6], "top.cats.total");
-	assert_streq(keys[7], "top.cats.cat2");
-	assert_streq(keys[8], "top.cats.cat2.name");
-	assert_streq(keys[9], "top.cats.cat2.colour");
+	assert_streq(keys[1], "top.cdata");
+	assert_streq(keys[2], "top.bar");
+	assert_streq(keys[3], "top.cats");
+	assert_streq(keys[4], "top.cats.cat1");
+	assert_streq(keys[5], "top.cats.cat1.name");
+	assert_streq(keys[6], "top.cats.cat1.colour");
+	assert_streq(keys[7], "top.cats.total");
+	assert_streq(keys[8], "top.cats.cat2");
+	assert_streq(keys[9], "top.cats.cat2.name");
+	assert_streq(keys[10], "top.cats.cat2.colour");
 	mxml_free_keys(keys, nkeys);
 
 	mxml_free(m);

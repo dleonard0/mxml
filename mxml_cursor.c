@@ -79,14 +79,14 @@ cursor_eat_white(struct cursor *c)
 	return 1;
 }
 
-/** Advance cursor until it is positioned at @a s, or at EOF */
-static void
-cursor_skip_to(struct cursor *c, const char *s)
+/** Advance cursor until it eats @a s, or reaches EOF */
+void
+cursor_skip_past(struct cursor *c, const char *s)
 {
 	const char *found;
 
 	found = memmem(c->pos, c->end - c->pos, s, strlen(s));
-	c->pos = found ? found : c->end;
+	c->pos = found ? found + strlen(s) : c->end;
 }
 
 /** Advance cursor until it is positioned at @a ch, or at EOF */
@@ -95,6 +95,30 @@ cursor_skip_to_ch(struct cursor *c, char ch)
 {
 	const char *found = memchr(c->pos, ch, c->end - c->pos);
 	c->pos = found ? found : c->end;
+}
+
+/** Advance cursor until it is positioned at one of @a delim, or at EOF */
+void
+cursor_skip_to_delim(struct cursor *c, const char *delim)
+{
+	while (c->pos < c->end && !strchr(delim, *c->pos))
+		c->pos++;
+}
+
+/** Advance cursor over "..." or '...' */
+void
+cursor_skip_quoted(struct cursor *c)
+{
+	char quote;
+	const char *end;
+
+	if (cursor_is_at_eof(c))
+		return;
+	quote = *c->pos;
+	if (quote != '"' && quote != '\'')
+		return;
+	end = memchr(c->pos + 1, quote, c->end - c->pos - 1);
+	c->pos = end ? end + 1 : c->end;
 }
 
 /**
@@ -109,11 +133,17 @@ cursor_skip_content(struct cursor *c)
 		if (*c->pos != '<')
 			c->pos++;
 		else if (cursor_eat(c, "<!--"))
-			cursor_skip_to(c, "-->");	/* TODO handle ---> */
-		else if (cursor_eat(c, "<?"))
-			cursor_skip_to(c, "?>");	/* TODO handle "..." */
+			cursor_skip_past(c, "-->");
+		else if (cursor_eat(c, "<?")) {
+			while (!cursor_is_at_eof(c) && !cursor_eat(c, "?>")) {
+			    cursor_skip_to_delim(c, "?\"'");
+			    cursor_skip_quoted(c);
+			}
+		}
+		else if (cursor_eat(c, "<![CDATA["))
+			cursor_skip_past(c, "]]>");
 		else
-			break;				/* TODO handle CDATA */
+			break;
 	}
 }
 

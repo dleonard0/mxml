@@ -19,7 +19,7 @@
  * until it reaches the draining writefn at the bottom. The drain empties the
  * token carrier of its token (and writes it) and the empty token carrier
  * immediately change direction to rise back up towards the XML source.
- * In this way, the execution storage requiements depends only on the edit
+ * In this way, the execution storage requirements depends only on the edit
  * list; it is independent of the XML document's depth which makes it suitable
  * for large streams with limited memory.
  *
@@ -194,9 +194,10 @@ nomem:
 
 /**
  * Generates the next token from the XML source.
- * This function advances x->cursor, to fille in x->token.
+ * This function advances x->cursor and fills in x->token.
  * It will generate either an OPEN, CLOSE, VALUE (text) or EOF token.
  * @param x pointer to private state
+ * @retval 0 when @a x->token has been filled in
  * @retval -1 on error (too deeply nested)
  */
 static int
@@ -211,7 +212,7 @@ xml_tokenize(struct xmlstate *x)
 
 	if (cursor_is_at_eof(c))
 		goto eof;
-	if (*c->pos != '<' || !x->init) {
+	if (*c->pos != '<' || !x->init || cursor_is_at(c, "<![CDATA[")) {
 		token->type = TOK_VALUE;
 		cursor_skip_content(c);
 		token->valuelen = c->pos - token->value;
@@ -550,7 +551,7 @@ flatten_edits(const struct mxml *m,
 	}
 	free(states);
 #ifdef DEBUG
-	fprintf(stderr, " EOF: return %d\n", ret);
+	fprintf(stderr, " EOF: return %zd\n", ret);
 #endif
 	return ret;
 }

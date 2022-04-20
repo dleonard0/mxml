@@ -199,7 +199,6 @@ This library has the following limitations:
 
  - XML processing instructions, comments and tag attributes are ignored
  - Namespaces are not understood
- - CDATA is not (yet) understood
  - Character encoding is ignored (UTF-8 can be assumed)
  - Element names should be unique within their parent
  - Only the XML entities `&lt; &gt; &amp;` are converted
